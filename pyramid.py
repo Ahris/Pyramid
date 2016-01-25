@@ -52,36 +52,6 @@ def crop_thirds(img):
     return (top, mid, bot)
 
 
-def conv2(a,b):
-    """2D convolution using the convolution's FFT property
-    """
-    
-    ma,na = a.shape
-    mb,nb = b.shape
-    return np.fft.ifft2(
-        np.fft.fft2(a, [2*ma-1, 2*na-1]) *
-        np.fft.fft2(b, [2*mb-1, 2*nb-1])
-    )
-
-
-def normxcorr2(b,a):
-    """Normalized cross correlation
-    
-    Compute a normalized 2D cross correlation using convolutions
-    This will give the same output as matlab, albeit in row-major order
-    
-    Args:
-        b: first 2D array 
-        a: second 2D array
-    """
-    
-    c = conv2(a, np.flipud(np.fliplr(b)))
-    a = conv2(a**2, np.ones(b.shape))
-    b = sum(b.flatten()**2)
-    c = c/sqrt(a*b)
-    return c
-
-
 def single_scale_align(cropped_img, offset):
     """Aligns the second and third images 
     
