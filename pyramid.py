@@ -17,10 +17,10 @@ Usage:
 """
 
 import sys
-from PIL import Image
-from scipy import signal
-from math import *
 import numpy as np
+from math import *
+from PIL import Image, ImageChops
+from scipy import signal
 from skimage import data
 import matplotlib.pyplot as plt
 
@@ -67,42 +67,55 @@ def single_scale_align(cropped_img, offset):
         Tuple of aligned images
     """
     
-    top           = cropped_img[0]
-    mid           = cropped_img[1]
-    bot           = cropped_img[2]
-    mid_offset    = (0,0)
-    bot_offset    = (0,0)
-    mid_aligned   = []
-    bot_aligned   = []
+    top = cropped_img[0]
+    mid = cropped_img[1]
+    bot = cropped_img[2]
     min_mid_score = float("inf")
     min_bot_score = float("inf")
+    mid_aligned   = []
+    bot_aligned   = []
     
-    top_norm = top/np.linalg.norm(top)
+    # top_norm = top/np.linalg.norm(top)
     
     for x in range(-offset, offset):
         for y in range(-offset, offset):
-             mid_roll = np.roll(np.roll(cropped_img[1], y, axis=0), x, axis=1)
-             bot_roll = np.roll(np.roll(cropped_img[2], y, axis=0), x, axis=1)
+             mid_roll = np.roll(np.roll(mid, y, axis=0), x, axis=1)
+             bot_roll = np.roll(np.roll(bot, y, axis=0), x, axis=1)
              
-             # mid_score = np.dot(top/np.norm(top), mid_roll/np.norm(mid_roll))
-             # bot_score = np.dot(top/np.norm(top), bot_roll/np.norm(bot_roll))
+             # mid_score = np.dot(top/np.linalg.norm(top, ord="fro"), mid_roll/np.linalg.norm(mid_roll, ord="fro"))
+             # bot_score = np.dot(top/np.linalg.norm(top, ord="fro"), bot_roll/np.linalg.norm(bot_roll, ord="fro"))
              
-             mid_score = np.sum(np.power(top - mid_roll, 2))
-             bot_score = np.sum(np.power(top - bot_roll, 2))
+             mid_score = np.sum(np.power(np.array(top) - np.array(mid_roll), 2))
+             bot_score = np.sum(np.power(np.array(top) - np.array(bot_roll), 2))
              
-             min_mid_score = min(min_mid_score, mid_score)
-             min_bot_score = min(min_bot_score, bot_score)
-             
-             if min_mid_score == mid_score:
-                 mid_offset  = (x,y)
-                 mid_aligned = mid_roll
+             if min_mid_score >= mid_score:
+                 min_mid_score = mid_score
+                 mid_aligned   = mid_roll
             
-             if min_bot_score == bot_score:
-                 bot_offset  = (x,y)
-                 bot_aligned = bot_roll
+             if min_bot_score >= bot_score:
+                 min_bot_score = bot_score
+                 bot_aligned   = bot_roll
     
     return (top, mid_aligned, bot_aligned)
 
+
+def trim_border(im):
+    """ 
+    It gets the border colour from the top left pixel, using getpixel, 
+    so you don't need to pass the colour.
+    Subtracts a scalar from the differenced image, this is a quick way of
+    saturating all values under 100, 100, 100 (in my example) to zero. So
+    is a neat way to remove any 'wobble' resulting from compression.
+    
+    https://stackoverflow.com/questions/10615901/trim-whitespace-using-pil
+    """
+    bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
+    diff = ImageChops.difference(im, bg)
+    diff = ImageChops.add(diff, diff, 2.0, -100)
+    bbox = diff.getbbox()
+    if bbox:
+        return im.crop(bbox)
+        
 
 def concat_images(imga, imgb):
     """
@@ -152,14 +165,17 @@ def overlay_images(imgs):
     
 
 def main(argv = sys.argv):
-    img = plt.imread("prk2000000199.jpg") #argv[1]
-    # plt.imshow(img, plt.get_cmap('gray'), vmin = 0, vmax = 255)
+    #img = plt.imread("prk2000000780.jpg") #argv[1]
+    img = Image.open("prk2000000780.jpg")
+    trimmed_img = trim_border(img)
+    
+    # Convert Pillow image to ndarray and transpose
+    trimmed_img = np.asarray(trimmed_img, dtype=np.uint8)
+    
+    # plt.imshow(trimmed_img, plt.get_cmap('gray'), vmin = 0, vmax = 255)
     # plt.show()
-    # 
-    # arr = [[1, 2, 3], [4, 5, 6]]
-    # print(np.roll(np.roll(arr, 1, axis=0), 1, axis=1))
-
-    cropped_img = crop_thirds(img)
+    
+    cropped_img = crop_thirds(trimmed_img)
     aligned_img = single_scale_align(cropped_img, 15)
     final_img   = overlay_images(aligned_img)
     
