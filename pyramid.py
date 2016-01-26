@@ -23,7 +23,6 @@ from math import *
 import numpy as np
 from skimage import data
 import matplotlib.pyplot as plt
-import matplotlib.image as mpimg
 
 __author__  = "Alice Wang"
 __email__   = "awang26@wustl.edu"
@@ -42,8 +41,8 @@ def crop_thirds(img):
     width       = len(img[0])
     height_crop = height / 3
     
-    print("height: ", height)
-    print("width: ", width)
+    # print("height: ", height)
+    # print("width: ", width)
     
     top = img[0:height_crop]                # blue
     mid = img[height_crop:height_crop*2]    # green
@@ -68,37 +67,37 @@ def single_scale_align(cropped_img, offset):
         Tuple of aligned images
     """
     
-    top             = cropped_img[0]
-    mid             = cropped_img[1]
-    bot             = cropped_img[2]
-    mid_offset      = (0,0)
-    bot_offset      = (0,0)
-    mid_aligned     = []
-    bot_aligned     = []
-    max_mid_score   = 0
-    max_bot_score   = 0
+    top           = cropped_img[0]
+    mid           = cropped_img[1]
+    bot           = cropped_img[2]
+    mid_offset    = (0,0)
+    bot_offset    = (0,0)
+    mid_aligned   = []
+    bot_aligned   = []
+    min_mid_score = float("inf")
+    min_bot_score = float("inf")
     
     top_norm = top/np.linalg.norm(top)
     
-    for x in range(0, offset):
-        for y in range(0, offset):
-             mid_roll = np.roll(np.roll(cropped_img[1], x, axis=0), y, axis=1)
-             bot_roll = np.roll(np.roll(cropped_img[2], x, axis=0), y, axis=1)
+    for x in range(-offset, offset):
+        for y in range(-offset, offset):
+             mid_roll = np.roll(np.roll(cropped_img[1], y, axis=0), x, axis=1)
+             bot_roll = np.roll(np.roll(cropped_img[2], y, axis=0), x, axis=1)
              
-             #mid_score = normxcorr2(top, mid_roll)
-             #bot_score = normxcorr2(top, bot_roll)
+             # mid_score = np.dot(top/np.norm(top), mid_roll/np.norm(mid_roll))
+             # bot_score = np.dot(top/np.norm(top), bot_roll/np.norm(bot_roll))
              
              mid_score = np.sum(np.power(top - mid_roll, 2))
              bot_score = np.sum(np.power(top - bot_roll, 2))
              
-             max_mid_score = max(max_mid_score, mid_score)
-             max_bot_score = max(max_bot_score, bot_score)
+             min_mid_score = min(min_mid_score, mid_score)
+             min_bot_score = min(min_bot_score, bot_score)
              
-             if max_mid_score == mid_score:
+             if min_mid_score == mid_score:
                  mid_offset  = (x,y)
                  mid_aligned = mid_roll
             
-             if max_bot_score == bot_score:
+             if min_bot_score == bot_score:
                  bot_offset  = (x,y)
                  bot_aligned = bot_roll
     
@@ -143,9 +142,9 @@ def overlay_images(imgs):
         Single full color image
     """
 
-    height           = len(imgs[0])
-    width            = len(imgs[0][0])
-    rgbArray         = np.zeros((height, width, 3), "uint8")
+    height   = len(imgs[0])
+    width    = len(imgs[0][0])
+    rgbArray = np.zeros((height, width, 3), "uint8")
     rgbArray[..., 0] = imgs[2]   # red
     rgbArray[..., 1] = imgs[1]   # green
     rgbArray[..., 2] = imgs[0]   # blue
@@ -153,9 +152,12 @@ def overlay_images(imgs):
     
 
 def main(argv = sys.argv):
-    img = plt.imread("prk2000000780.jpg") #argv[1]
-    plt.imshow(img, plt.get_cmap('gray'), vmin = 0, vmax = 255)
-    plt.show()
+    img = plt.imread("prk2000000199.jpg") #argv[1]
+    # plt.imshow(img, plt.get_cmap('gray'), vmin = 0, vmax = 255)
+    # plt.show()
+    # 
+    # arr = [[1, 2, 3], [4, 5, 6]]
+    # print(np.roll(np.roll(arr, 1, axis=0), 1, axis=1))
 
     cropped_img = crop_thirds(img)
     aligned_img = single_scale_align(cropped_img, 15)
