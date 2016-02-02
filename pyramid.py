@@ -24,6 +24,8 @@ NOTES
 """
 
 import sys
+import scipy
+import copy
 import numpy as np
 from math import *
 from PIL import Image, ImageChops
@@ -141,12 +143,17 @@ def trim_messy_borders(imgs):
     return (top, mid, bot)
     
     
-def trim_messy_border(img):
-    """ Trims black border off a single image
+def trim_left_right(img):
+    """ Trims black border off the left and right of a single image
     
     Increase contrast 
     Convert image to only black and white
-    Call trim border
+    Blur Image to remove white border
+    Samples the center of the image for border width
+    Crop image 
+    
+    Assumes border is within 10% of image
+    Assumes white specks within 5% of the image is ok
     
     Args:
         Single image to crop
@@ -154,10 +161,60 @@ def trim_messy_border(img):
     Returns:
         Cropped single image
     """    
+    height      = len(img)
+    width       = len(img[0])
     
+    # area where white in border is ok
+    white_ok_width = width * .05
+    white_ok_height = height * .02
+    
+    max_crop_percent = .10
+    max_crop_height = int(height * max_crop_percent)
+    max_crop_width = int(width * max_crop_percent)
+    
+    # Increase contrast and turn image in black/white
     img_bw = np.around(img / 150)
     
-    plt.imshow(trimmed_img, plt.get_cmap('gray'), vmin = 0, vmax = 1)
+    # plt.imshow(img_bw, plt.get_cmap('gray'), vmin = 0, vmax=1)
+    # plt.show()
+    
+    crop_left = 0;
+    crop_right = 0;
+    for y in range(int(height/2)-10, int(height/2)+10):
+        # Check left
+        for x in range(0, max_crop_width):
+            if img_bw[y][x] == 1 and x > white_ok_width:
+                # Found a white pixel, reached edge of black border
+                # Set a new crop width
+                crop_left = max(x, crop_left)
+                break
+        
+        # Check right
+        for x in range(width-1, width-max_crop_width, -1):
+            if img_bw[y][x] == 1 and x < width-white_ok_width:
+                # Found a white pixel, reached edge of black border
+                # Set a new crop width
+                crop_right = max(width-x, crop_right)
+                break
+    
+    print(max_crop_width)
+    print(crop_left)
+    print(crop_right)
+    
+    # Crop columns
+    img_crop = np.delete(img, list(range(crop_left)), axis=1)
+    #imshow(img)
+    
+    print("width from right:",width-crop_right, width)
+    print(list(range(width-crop_right, width)))
+    img_crop = np.delete(img_crop, list(range(width-crop_right*2, width)), axis=1) # UMMMM cropright *2???? whyy??? 
+    imshow(img_crop)
+    
+    #img_blur = scipy.ndimage.filters.gaussian_filter(img_bw, sigma=7)
+    
+    
+def imshow(img):    
+    plt.imshow(img, plt.get_cmap('gray'), vmin = 0, vmax=255)
     plt.show()
     
 
@@ -216,22 +273,16 @@ def main(argv = sys.argv):
     # Convert Pillow image to ndarray and transpose
     trimmed_img = np.asarray(trimmed_img, dtype=np.uint8)
     
-    # Testing contrast!!!
-    trim_messy_border(trimmed_img)
+    # Testing!!!
+    trim_left_right(trimmed_img)
     
-    # plt.imshow(trimmed_img, plt.get_cmap('gray'), vmin = 0, vmax = 255)
-    # plt.show()
+    # useful
+    # cropped_img = crop_thirds(trimmed_img)    
+    # aligned_img = single_scale_align(cropped_img, 15)    
+    # final_img   = overlay_images(aligned_img)
     
-    cropped_img = crop_thirds(trimmed_img)
-    aligned_img = single_scale_align(cropped_img, 15)
-    final_img   = overlay_images(aligned_img)
-    
-    #concat = concat_n_images(cropped_img)
-    
-    # uncomment this to see final image
-    # plt.imshow(final_img, plt.get_cmap('gray'), vmin = 0, vmax = 255)
-    # plt.show()
-    
+    # concat = concat_n_images(cropped_img)
+    # imshow(final_img)
     # input("Press ENTER to exit.")
     return 0    
 
