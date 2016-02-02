@@ -16,6 +16,13 @@ Usage:
 
 """
 
+"""
+NOTES
+
+    # Convert array to PIL image
+    PIL = Image.fromarray(np.uint8(img_bw)*255)
+"""
+
 import sys
 import numpy as np
 from math import *
@@ -117,6 +124,43 @@ def trim_border(im):
         return im.crop(bbox)
         
 
+def trim_messy_borders(imgs):
+    """ Trim the unequal black border from all sides of each image
+    
+    Args:
+        Three images
+        
+    Returns:
+        Three cropped images
+    """
+    
+    top = trim_messy_border(imgs[0])
+    mid = trim_messy_border(imgs[1])
+    bot = trim_messy_border(imgs[2])
+    
+    return (top, mid, bot)
+    
+    
+def trim_messy_border(img):
+    """ Trims black border off a single image
+    
+    Increase contrast 
+    Convert image to only black and white
+    Call trim border
+    
+    Args:
+        Single image to crop
+    
+    Returns:
+        Cropped single image
+    """    
+    
+    img_bw = np.around(img / 150)
+    
+    plt.imshow(trimmed_img, plt.get_cmap('gray'), vmin = 0, vmax = 1)
+    plt.show()
+    
+
 def concat_images(imga, imgb):
     """
     Combines two single channel image ndarrays side-by-side.
@@ -166,11 +210,14 @@ def overlay_images(imgs):
 
 def main(argv = sys.argv):
     #img = plt.imread("prk2000000780.jpg") #argv[1]
-    img = Image.open("prk2000000780.jpg")
+    img = Image.open("images/prk2000000780.jpg")
     trimmed_img = trim_border(img)
     
     # Convert Pillow image to ndarray and transpose
     trimmed_img = np.asarray(trimmed_img, dtype=np.uint8)
+    
+    # Testing contrast!!!
+    trim_messy_border(trimmed_img)
     
     # plt.imshow(trimmed_img, plt.get_cmap('gray'), vmin = 0, vmax = 255)
     # plt.show()
@@ -180,8 +227,10 @@ def main(argv = sys.argv):
     final_img   = overlay_images(aligned_img)
     
     #concat = concat_n_images(cropped_img)
-    plt.imshow(final_img, plt.get_cmap('gray'), vmin = 0, vmax = 255)
-    plt.show()
+    
+    # uncomment this to see final image
+    # plt.imshow(final_img, plt.get_cmap('gray'), vmin = 0, vmax = 255)
+    # plt.show()
     
     # input("Press ENTER to exit.")
     return 0    
