@@ -218,33 +218,35 @@ def trim_left_right(img):
     """    
     height         = len(img)
     width          = len(img[0])
-    white_ok_width = int(width * .05)
+    white_ok_width = int(width * .02)
     max_crop_width = int(width * .10)
+    threshold      = height * .3
     
-    # Increase contrast and turn image in black/white
-    img_bw = np.around(img / 150)
+    
+    print("threshold", threshold)
+    
+    img_bw  = np.around(img/150)
+    col_sum = np.sum(img_bw, axis=0)
+    
+    print("white Ok:", white_ok_width, "max_crop_width", max_crop_width)
+    print("height:", height, "width", width)
+    print("col_sum", col_sum)
+    print("col sum len", len(col_sum))
     
     # plt.imshow(img_bw, plt.get_cmap('gray'), vmin = 0, vmax=1)
     # plt.show()
-    
+    # 
     crop_left = 0;
     crop_right = 0;
-    for y in range(int(height/2)-10, int(height/2)+10):
-        # Check left
-        for x in range(0, max_crop_width):
-            if img_bw[y][x] == 1 and x > white_ok_width:
-                # Found a white pixel, reached edge of black border
-                # Set a new crop width
-                crop_left = max(x, crop_left)
-                break
-        
-        # Check right
-        for x in range(width-1, width-max_crop_width, -1):
-            if img_bw[y][x] == 1 and x < width-white_ok_width:
-                # Found a white pixel, reached edge of black border
-                # Set a new crop width
-                crop_right = max(width-x, crop_right)
-                break
+    
+    for i in range(0, max_crop_width):
+        if col_sum[i] > threshold and i > white_ok_width:
+            crop_left = i
+            break
+    for i in range(width-1, width-max_crop_width, -1):
+        if col_sum[i] > threshold and i < width-white_ok_width:
+            crop_right = width-i
+            break
     
     print(max_crop_width)
     print(crop_left)
@@ -252,13 +254,16 @@ def trim_left_right(img):
     
     # Crop columns
     img_crop = np.delete(img, list(range(crop_left)), axis=1)
-    #imshow(img)
-    
-    print("width from right:",width-crop_right, width)
-    print(list(range(width-crop_right, width)))
-    img_crop = np.delete(img_crop, list(range(width-crop_right*2, width)), axis=1) # UMMMM cropright *2???? whyy??? 
     #imshow(img_crop)
     
+    print("image width before last crop", len(img_crop[0]))
+    print("width from right:",width-crop_right, width)
+    print(list(range(width-crop_right, width)))
+    
+    to_delete = list(range(width-crop_right*2, width)) # UMMMM cropright *2???? whyy??? 
+    img_crop = np.delete(img_crop, to_delete, axis=1) 
+    print("image width after crop", len(img_crop[0]))
+    # imshow(img_crop)
     #img_blur = scipy.ndimage.filters.gaussian_filter(img_bw, sigma=7)
     
     return img_crop
@@ -284,55 +289,69 @@ def trim_top_bot(imgs):
         3 trimmed images
     """   
     
+    print("--------------------------")
+    
     height          = len(imgs[0])
     width           = len(imgs[0][0])
-    white_ok_height = int(height * .05)
+    white_ok_height = int(height * .02)
     max_crop_height = int(height * .10)
+    threshold       = width * .3
     
-    # Increase contrast and turn image in black/white
-    img_bw_b = np.around(imgs[0] / 150)
-    img_bw_g = np.around(imgs[1] / 150)
-    img_bw_r = np.around(imgs[2] / 150)
+    print("threshold", threshold)
     
-    # plt.imshow(img_bw, plt.get_cmap('gray'), vmin = 0, vmax=1)
+    img_bw_b = np.around(imgs[0]/150)
+    img_bw_g = np.around(imgs[1]/150)
+    img_bw_r = np.around(imgs[2]/150)
+    
+    col_sum_b = np.sum(img_bw_b, axis=1)
+    col_sum_g = np.sum(img_bw_g, axis=1)
+    col_sum_r = np.sum(img_bw_r, axis=1)
+    
+    print(col_sum_g)
+    print("col sum g len:", len(col_sum_g))
+    
+    # plt.imshow(img_bw_g, plt.get_cmap('gray'), vmin = 0, vmax=1)
     # plt.show()
     
     crop_top = 0
+    blue_done = False
+    green_done = False
+    red_done = False
+    
+    for i in range(0, max_crop_height):
+        if i > white_ok_height:
+            if col_sum_b[i] > threshold and not blue_done:
+                crop_top = i
+                blue_done = True
+            if col_sum_g[i] > threshold and not green_done:
+                crop_top = i
+                green_done = True
+            if col_sum_r[i] > threshold and not red_done:
+                crop_top = i
+                red_done = True
+    
     crop_bot = 0
     blue_done = False
     green_done = False
     red_done = False
     
-    for x in range(int(width/2)-10, int(width/2)+10):
-        # Check top
-        for y in range(0, max_crop_height):
-            # Found a white pixel, reached edge of black border
-            if not blue_done and img_bw_b[y][x] == 1 and y > white_ok_height:
-                crop_top = max(y, crop_top)
+    for i in range(height-1, height-max_crop_height, -1):
+        if i < height-white_ok_height:
+            print("out of white ok range")
+            if col_sum_b[i] > threshold and not blue_done:
+                print("found blue")
+                crop_bot = height-i;
                 blue_done = True
-            if not green_done and img_bw_g[y][x] == 1 and y > white_ok_height:
-                crop_top = max(y, crop_top)
+            if col_sum_g[i] > threshold and not green_done:
+                print("found green")
+                crop_bot = height-i;
                 green_done = True
-            if not red_done and img_bw_r[y][x] == 1 and y > white_ok_height:
-                crop_top = max(y, crop_top)
+            if col_sum_r[i] > threshold and not red_done:
+                print("found red")
+                crop_bot = height-i;
                 red_done = True
-        
-        # Check bot
-        for y in range(height-1, height-max_crop_height, -1):
-            # Found a white pixel, reached edge of black border
-            if not blue_done and img_bw_b[y][x] == 1 and y < white_ok_height:
-                crop_bot = max(height-y, crop_bot)
-                blue_done = True
-            if not green_done and img_bw_g[y][x] == 1 and y < white_ok_height:
-                crop_bot = max(height-y, crop_bot)
-                green_done = True
-            if not red_done and img_bw_r[y][x] == 1 and y < white_ok_height:
-                crop_bot = max(height-y, crop_bot)
-                red_done = True
-                
-    print(max_crop_height)
-    print(crop_top)
-    print(crop_bot)
+    
+    print("Max_crop_height", max_crop_height, "top crop",crop_top, "bot crop", crop_bot)
     
     # Crop columns
     img_crop_b = np.delete(imgs[0], list(range(crop_top)), 0)
@@ -354,7 +373,7 @@ def trim_top_bot(imgs):
     
     print("min height", min_height)
     
-    # imshow(concat_n_images((img_crop_b, img_crop_g, img_crop_r)))
+    #imshow(concat_n_images((img_crop_b, img_crop_g, img_crop_r)))
     
     #img_blur = scipy.ndimage.filters.gaussian_filter(img_bw, sigma=7)
     return (img_crop_b, img_crop_g, img_crop_r)
@@ -414,7 +433,7 @@ def overlay_images(imgs):
 
 def main(argv = sys.argv):
     #img = plt.imread("prk2000000780.jpg") #argv[1]
-    img = Image.open("images/prk2000000162.jpg")
+    img = Image.open("images/prk2000000199.jpg")
     
     # Trim the white border
     trimmed_img = trim_border(img) 
