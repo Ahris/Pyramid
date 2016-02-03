@@ -60,6 +60,12 @@ def crop_thirds(img):
     return (top, mid, bot)
 
 
+def multi_scale_align(imgs):
+    """
+    """
+    pass
+
+
 def single_scale_align(cropped_img, offset):
     """Aligns the second and third images 
     
@@ -420,7 +426,7 @@ def main(argv = sys.argv):
     # useful
     cropped_img = crop_thirds(trimmed_img)
     retrimmed_img = trim_top_bot(cropped_img)
-    aligned_img = single_scale_align_edge(retrimmed_img, 15)    
+    aligned_img = single_scale_align(retrimmed_img, 15)    
     final_img   = overlay_images(aligned_img)
     
     # concat = concat_n_images(cropped_img)
