@@ -222,7 +222,6 @@ def trim_left_right(img):
     max_crop_width = int(width * .10)
     threshold      = height * .3
     
-    
     print("threshold", threshold)
     
     img_bw  = np.around(img/150)
@@ -425,15 +424,15 @@ def overlay_images(imgs):
     height   = len(imgs[0])
     width    = len(imgs[0][0])
     rgbArray = np.zeros((height, width, 3), "uint8")
-    rgbArray[..., 0] = imgs[2]   # red
-    rgbArray[..., 1] = imgs[1]   # green
-    rgbArray[..., 2] = imgs[0]   # blue
+    rgbArray[..., 0] = imgs[2]*.9   # red
+    rgbArray[..., 1] = imgs[1]      # green
+    rgbArray[..., 2] = imgs[0]      # blue
     return Image.fromarray(rgbArray)
     
 
 def main(argv = sys.argv):
     #img = plt.imread("prk2000000780.jpg") #argv[1]
-    img = Image.open("images/prk2000000199.jpg")
+    img = Image.open("images/prk2000000780.jpg")
     
     # Trim the white border
     trimmed_img = trim_border(img) 
@@ -445,7 +444,7 @@ def main(argv = sys.argv):
     # useful
     cropped_img = crop_thirds(trimmed_img)
     retrimmed_img = trim_top_bot(cropped_img)
-    aligned_img = single_scale_align(retrimmed_img, 15)    
+    aligned_img = single_scale_align_edge(retrimmed_img, 15)    
     final_img   = overlay_images(aligned_img)
     
     # concat = concat_n_images(cropped_img)
