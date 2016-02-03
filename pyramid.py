@@ -429,7 +429,7 @@ def overlay_images(imgs):
     rgbArray[..., 2] = imgs[0]*.9   # blue
     return Image.fromarray(rgbArray)
     
-
+ 
 def main(argv = sys.argv):
     PIL_img       = Image.open("images/prk2000000780_large.tif")
     trimmed_img   = trim_border(PIL_img) # remove white border
