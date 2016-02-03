@@ -65,11 +65,12 @@ def multi_scale_align(imgs):
     Returns: 
         last 2 images aligend to first
     """
+    original = copy.deepcopy(imgs)
     offsets = multi_helper(imgs)
-    aligned_g = np.roll(np.roll(img1, offsets[0][1], 0), offsets[0][0], 1)
-    aligned_r = np.roll(np.roll(img1, offsets[1][1], 0), offsets[1][0], 1)
+    aligned_g = np.roll(np.roll(original[1], offsets[0][1], 0), offsets[0][0], 1)
+    aligned_r = np.roll(np.roll(original[2], offsets[1][1], 0), offsets[1][0], 1)
     
-    return (imgs[0], aligned_g, aligned_r)
+    return (original[0], aligned_g, aligned_r)
 
 def multi_helper(imgs):
     """
@@ -80,7 +81,6 @@ def multi_helper(imgs):
         Alignment for green and red 
         Format: (x,y)
     """
-    original = copy.deepcopy(imgs)
     height   = len(imgs[0])
     width    = len(imgs[0][0])
     
@@ -98,7 +98,14 @@ def multi_helper(imgs):
         
         for i in range(0,3):
             imgs[i] = scipy.ndimage.filters.gaussian_filter(imgs[i], 7)
-            #imgs[i] = imgs[i].resize((width, height), Image.ANTIALIAS)
+            
+            # Convert array to PIL image
+            PIL = Image.fromarray(np.uint8(imgs[i])*255)
+            
+            PIL = PIL.resize((width, height), Image.ANTIALIAS)
+            
+            # Convert PIL image to array 
+            imgs[i] = np.asarray(PIL, dtype=np.uint8)
         
         new_offset = multi_helper(imgs)
         new_offset = np.multiply(new_offset, 2)
@@ -228,11 +235,11 @@ def trim_left_right(img):
     """    
     height         = len(img)
     width          = len(img[0])
-    white_ok_width = int(width * .02)
+    white_ok_width = int(width * .017)
     max_crop_width = int(width * .10)
     threshold      = height * .3
     
-    img_bw  = np.around(img/150)
+    img_bw  = np.around(np.multiply(img, 1/180))
     col_sum = np.sum(img_bw, axis=0)
 
     crop_left = 0;    
@@ -248,9 +255,11 @@ def trim_left_right(img):
             break
     
     # Crop columns
-    to_delete = list(range(width-crop_right*2, width)) 
-    img_crop = np.delete(img, list(range(crop_left)), axis=1)
-    img_crop = np.delete(img_crop, to_delete, axis=1) 
+    img_crop  = np.delete(img, list(range(crop_left)), axis=1)
+    width     = len(img_crop[0])
+    to_delete = list(range(width-crop_right, width)) 
+    img_crop  = np.delete(img_crop, to_delete, axis=1)
+    
     return img_crop
 
 
@@ -280,9 +289,9 @@ def trim_top_bot(imgs):
     threshold       = width * .3
     
     # Contrast and b/w
-    img_bw_b = np.around(imgs[0]/150)
-    img_bw_g = np.around(imgs[1]/150)
-    img_bw_r = np.around(imgs[2]/150)
+    img_bw_b = np.around(np.multiply(imgs[0], 1/180))
+    img_bw_g = np.around(np.multiply(imgs[1], 1/180))
+    img_bw_r = np.around(np.multiply(imgs[2], 1/180))
     
     # White count of each row
     col_sum_b = np.sum(img_bw_b, axis=1)
@@ -390,9 +399,7 @@ def overlay_images(imgs):
     
 
 def main(argv = sys.argv):
-    #img = plt.imread("prk2000000780.jpg") #argv[1]
-    
-    PIL_img       = Image.open("images/prk2000000780.jpg")
+    PIL_img       = Image.open("images/prk2000000780_large.tif")
     trimmed_img   = trim_border(PIL_img) # remove white border
     ndarray_img   = np.asarray(trimmed_img, dtype=np.uint8)
     trimmed_img   = trim_left_right(ndarray_img)
@@ -407,7 +414,7 @@ def main(argv = sys.argv):
     
     # Multi-Scale Align
     aligned_img = multi_scale_align(retrim_img)
-    final_img = overlay_images(aligned_img)
+    final_img   = overlay_images(aligned_img)
     
     imshow(final_img)
     return 0    
