@@ -62,8 +62,39 @@ def multi_scale_align(imgs):
     """
     pass
 
+def multi_helper(imgs):
+    """
+    Args:
+        3 images
+        
+    Returns:
+        Alignment for green and red 
+        Format: (x,y)
+    """
+    original = copy.deepcopy(imgs)
+    height   = len(img[0])
+    width    = len(img[0][0])
+    
+    # Base Case
+    if height < 150 or width < 150:
+        alignment = single_scale_align_edge(imgs, 2)[1]
+        return alignment
+    
+    # Blur, shrink image and make a recursive call
+    else:
+        height = int(height/2)
+        width  = int(width/2)
+        
+        for i in range(0,3):
+            imgs[i] = scipy.ndimage.filters.gaussian_filter(imgs[i], 7)
+            imgs[i] = imgs[i].resize((width, height), Image.ANTIALIAS)
+        
+        new_alignment = multi_helper(imgs)
+        new_alignment = np.multiply(new_alignment,2)
+        return single_scale_align_edge(imgs, 2)[1]
+        
 
-def single_scale_align(cropped_img, offset):
+def single_scale_align(imgs, offset):
     """Aligns the second and third images 
     
     Exhaustively search over a window of possible displacements (e.g.
@@ -73,16 +104,20 @@ def single_scale_align(cropped_img, offset):
     
     Args: 
         cropped_img: Tuple of three grayscale images
-        offset: size of offset to search over
+        offset: list of offsets to search over
+        first el is for green, second for red
+        each el has a range for x then y
     Returns:
         Tuple of aligned images
+        and alignment array, which contains alignemtn of green (index 0)
+        and alignement of red (index 1)
     """
-    
-    top = cropped_img[0]
-    mid = cropped_img[1]
-    bot = cropped_img[2]
+    top = imgs[0]
+    mid = imgs[1]
+    bot = imgs[2]
     min_mid_score = float("inf")
     min_bot_score = float("inf")
+    alignment     = [None]*2
     mid_aligned   = []
     bot_aligned   = []
     
@@ -97,15 +132,17 @@ def single_scale_align(cropped_img, offset):
              if min_mid_score >= mid_score:
                  min_mid_score = mid_score
                  mid_aligned   = mid_roll
+                 alignment[0]  = (x,y)
             
              if min_bot_score >= bot_score:
                  min_bot_score = bot_score
                  bot_aligned   = bot_roll
+                 alignment[1]  = (x,y)
     
-    return (top, mid_aligned, bot_aligned)
+    return ((top, mid_aligned, bot_aligned), alignment)
     
 
-def single_scale_align_edge(cropped_img, offset):
+def single_scale_align_edge(imgs, offset):
     """Aligns the second and third images 
     
     Exhaustively search over a window of possible displacements (e.g.
@@ -121,20 +158,18 @@ def single_scale_align_edge(cropped_img, offset):
 
     Returns:
         Tuple of aligned images
+        and alignment array, which contains alignemtn of green (index 0)
+        and alignement of red (index 1)
     """
-    
-    top = cropped_img[0]
-    mid = cropped_img[1]
-    bot = cropped_img[2]
     min_mid_score = float("inf")
     min_bot_score = float("inf")
     mid_offset    = []
     bot_offset    = []
 
     # Edge detection
-    top_edge_sobel = filter.sobel(top)
-    mid_edge_sobel = filter.sobel(mid)
-    bot_edge_sobel = filter.sobel(bot)
+    top_edge_sobel = filter.sobel(imgs[0])
+    mid_edge_sobel = filter.sobel(imgs[1])
+    bot_edge_sobel = filter.sobel(imgs[2])
     
     top_array = np.array(top_edge_sobel)
     
@@ -154,9 +189,9 @@ def single_scale_align_edge(cropped_img, offset):
                  min_bot_score = bot_score
                  bot_offset   = (x,y)
     
-    mid_aligned = np.roll(np.roll(mid, bot_offset[1], axis=0), bot_offset[0], 1)
-    bot_aligned = np.roll(np.roll(bot, bot_offset[1], axis=0), bot_offset[0], 1)
-    return (top, mid_aligned, bot_aligned)
+    mid_aligned = np.roll(np.roll(imgs[1], bot_offset[1], 0), bot_offset[0], 1)
+    bot_aligned = np.roll(np.roll(imgs[2], bot_offset[1], 0), bot_offset[0], 1)
+    return ((imgs[0], mid_aligned, bot_aligned), (mid_offset, bot_offset))
 
 
 def trim_border(im):
@@ -367,7 +402,7 @@ def main(argv = sys.argv):
     trimmed_img   = trim_left_right(ndarray)
     cropped_img   = crop_thirds(trimmed_img)
     retrimmed_img = trim_top_bot(cropped_img)
-    aligned_img   = single_scale_align_edge(retrimmed_img, 15)    
+    aligned_img   = single_scale_align_edge(retrimmed_img, 15)[0]
     final_img     = overlay_images(aligned_img)
     
     imshow(final_img)
