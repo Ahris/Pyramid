@@ -12,20 +12,14 @@ About:
     collection
     
 Usage:
-    ./pyramid.py image_path.jpg
+    Edit the image name directly at the beginning of the main file
+    Large images need to use the multi-scale alignment 
 
-"""
-
-"""
-NOTES
-
-    # Convert array to PIL image
-    PIL = Image.fromarray(np.uint8(img_bw)*255)
 """
 
 import sys
-import scipy
 import copy
+import scipy
 import numpy as np
 from math import *
 from PIL import Image, ImageChops
@@ -48,7 +42,7 @@ def crop_thirds(img):
     """
     height      = len(img)
     width       = len(img[0])
-    height_crop = int(height / 3)
+    height_crop = int(height/3)
     
     top = img[0:height_crop]                # blue
     mid = img[height_crop:height_crop*2]    # green
@@ -58,28 +52,40 @@ def crop_thirds(img):
 
 
 def multi_scale_align(imgs):
-    """
+    """ Uses image pyramids to align 3 channels of a large image
+    
+    Align the red and green channels to the blue channel, which will
+    later be combined into a single image. The image pyramid is
+    made of progressively smaller images. Useful for the alignment 
+    search so we don't have to search over as large of an area.
+    
     Args:
-        3 images
+        img: 3 images. Blue, green, then red
     
     Returns: 
-        last 2 images aligend to first
+        Green and red images aligned to the blue image
     """
-    original = copy.deepcopy(imgs)
-    offsets = multi_helper(imgs)
-    aligned_g = np.roll(np.roll(original[1], offsets[0][1], 0), offsets[0][0], 1)
-    aligned_r = np.roll(np.roll(original[2], offsets[1][1], 0), offsets[1][0], 1)
+    orig      = copy.deepcopy(imgs)
+    offsets   = multi_helper(imgs)
+    aligned_g = np.roll(np.roll(orig[1], offsets[0][1], 0), offsets[0][0], 1)
+    aligned_r = np.roll(np.roll(orig[2], offsets[1][1], 0), offsets[1][0], 1)
     
-    return (original[0], aligned_g, aligned_r)
+    return (orig[0], aligned_g, aligned_r)
 
 def multi_helper(imgs):
-    """
+    """ Uses image pyramids to align 3 channels of a large image
+    
+    Helper function to take care of the recursive calls. One the image
+    is small enough, perform a normal single scale alignment. At the
+    larger scale, check a 5x5 range around the new offset using single
+    scale alignment to see if there is a better offset. Return the offset.
+    
     Args:
-        3 images
-        
-    Returns:
-        Alignment for green and red 
-        Format: (x,y)
+        img: 3 images. Blue, green, then red
+    
+    Returns: 
+        The offset for green then red images. Follows the format: (x, y),
+        where x is axis 1 and y is axis 0.
     """
     height   = len(imgs[0])
     width    = len(imgs[0][0])
@@ -99,13 +105,9 @@ def multi_helper(imgs):
         for i in range(0,3):
             imgs[i] = scipy.ndimage.filters.gaussian_filter(imgs[i], 7)
             
-            # Convert array to PIL image
-            PIL = Image.fromarray(np.uint8(imgs[i])*255)
-            
-            PIL = PIL.resize((width, height), Image.ANTIALIAS)
-            
-            # Convert PIL image to array 
-            imgs[i] = np.asarray(PIL, dtype=np.uint8)
+            PIL = Image.fromarray(np.uint8(imgs[i])*255) # Convert arr to PIL img
+            PIL = PIL.resize((width, height), Image.ANTIALIAS)            
+            imgs[i] = np.asarray(PIL, dtype=np.uint8)   # Convert PIL img to arr 
         
         new_offset = multi_helper(imgs)
         new_offset = np.multiply(new_offset, 2)
@@ -121,23 +123,24 @@ def multi_helper(imgs):
         
 
 def single_scale_align(img0, img1, offset):
-    """Aligns img1 to img0
+    """Single scale aligns two images
     
-    Exhaustively search over a window of possible displacements (e.g.
-    [-15,15] pixels), score each one using some image matching metric,
-    and take the displacement with the best score.
-    The image matching metric is using sum of squared differences.
+    Aligns img1 to img0, which acts like the anchor. 
+    We exhaustively search over a window of possible displacements given
+    by the offset (e.g. [-15,15] pixels), then score each offset image
+    using some image matching metric (the sum of squared distances) and
+    finally choose the displacement with the best score.
     
     Args: 
-        img0:
-        img1:
-        offset: x then y offset range
-        first el is for green, second for red
-        each el has a range for x then y
+        img0: Anchor image to be aligned to
+        img1: Image to be aligned
+        offset: List of two offset ranges. First is for green, second
+        is for red. Each offset range contains a x range first, then a
+        y range
+        
     Returns:
-        Aligned img
-        and alignment array, which contains alignemtn of green (index 0)
-        and alignement of red (index 1)
+        A single aligned img and the alignment array, which contains
+        alignemtn of green (index 0) and alignement of red (index 1)
     """
     min_score    = float("inf")
     aligned_img  = []
@@ -157,24 +160,26 @@ def single_scale_align(img0, img1, offset):
     
 
 def single_scale_align_edge(img0, img1, offset):
-    """Aligns img1 image to img0 image
+    """Single scale aligns two images using edge detection
     
-    Exhaustively search over a window of possible displacements (e.g.
-    [-15,15] pixels), score each one using some image matching metric,
-    and take the displacement with the best score.
-    The image matching metric is using sum of squared differences.
-    
-    Apply sobel's edge detection.
+    Similar to single_scale_align(), but also runs an edge detection
+    filter on top of the image before the search starts.
+    Aligns img1 to img0, which acts like the anchor. 
+    We exhaustively search over a window of possible displacements given
+    by the offset (e.g. [-15,15] pixels), then score each offset image
+    using some image matching metric (the sum of squared distances) and
+    finally choose the displacement with the best score.
     
     Args: 
-        img0:
-        img1:
-        offset: x hten y
-
+        img0: Anchor image to be aligned to
+        img1: Image to be aligned
+        offset: List of two offset ranges. First is for green, second
+        is for red. Each offset range contains a x range first, then a
+        y range
+        
     Returns:
-        Aligned image
-        and alignment array, which contains alignemtn of green (index 0)
-        and alignement of red (index 1)
+        A single aligned img and the alignment array, which contains
+        alignemtn of green (index 0) and alignement of red (index 1)
     """
     min_score  = float("inf")
     final_offset = []
@@ -198,14 +203,21 @@ def single_scale_align_edge(img0, img1, offset):
 
 
 def trim_border(im):
-    """ 
-    It gets the border colour from the top left pixel, using getpixel, 
-    so you don't need to pass the colour.
-    Subtracts a scalar from the differenced image, this is a quick way of
-    saturating all values under 100, 100, 100 (in my example) to zero. So
-    is a neat way to remove any 'wobble' resulting from compression.
+    """ Trims the solid color border from an image
+    
+    It gets the border colour from the top left pixel, using getpixel,
+    so you don't need to pass the colour. Subtracts a scalar from the
+    differenced image, this is a quick way of saturating all values
+    under 100, 100, 100 (in my example) to zero. So is a neat way to
+    remove any 'wobble' resulting from compression.
     
     https://stackoverflow.com/questions/10615901/trim-whitespace-using-pil
+    
+    Args:
+        im: Single image to be trimmed
+    
+    Returns:
+        An image if it was trimmed
     """
     bg = Image.new(im.mode, im.size, im.getpixel((0,0)))
     diff = ImageChops.difference(im, bg)
@@ -219,16 +231,19 @@ def trim_border(im):
 def trim_left_right(img):
     """ Trims black border off the left and right of a single image
     
-    Increase contrast 
-    Convert image to only black and white
-    Samples the center of the image for border width
-    Crop image 
+    Trim off a non-uniform black border from the left and right edges
+    of the image. The edge can be very noisy and won't necessarily be
+    the same value of black. We increase contrast, convert image to
+    only black and white pixels, count up the number of white pixels
+    along the columns, find the point where we start having a lot of
+    white pixels and set that as the cut off point. Finally, we crop
+    the image.
     
-    Assumes border is within 10% of image
-    Assumes white specks within 5% of the image are ok
+    Assumes border is within 10% of image.
+    Assumes white specks within 1.7% of the image are ok.
     
     Args:
-        Single image to crop
+        img: Single image to crop
     
     Returns:
         Cropped single image
@@ -266,18 +281,21 @@ def trim_left_right(img):
 def trim_top_bot(imgs):
     """ Trims black border off the top and bot of three images
     
-    Increase contrast 
-    Convert image to only black and white
-    Samples the vertical center of the image for border width
-    Crop image 
+    Trim off a non-uniform black border from the top and bottom edges
+    of the three images. The edge can be very noisy and won't
+    necessarily have the same value of black. We increase contrast,
+    convert image to only black and white pixels, count up the number
+    of white pixels along the rows, find the point where we start having
+    a lot of white pixels and set that as the cut off point. Then,
+    we crop the image. At the very end, we need to re-crop each image
+    so they all have the
+    same height.
     
-    Assumes border is within 10% of image
-    Assumes white specks within 5% of the image are ok
-    
-    Problem: need to trim each image equally
+    Assumes border is within 10% of image.
+    Assumes white specks within 1.7% of the image are ok.
     
     Args:
-        3 images to crop
+        imgs: 3 images to crop
     
     Returns:
         3 trimmed images
@@ -344,16 +362,24 @@ def trim_top_bot(imgs):
     
     
 def imshow(img):    
-    """ 
-    Show an image with range 0 to 255
+    """ Show an image with values in range 0 to 255
+    
+    Args:
+        img: Single image to display
     """
     plt.imshow(img, plt.get_cmap('gray'), vmin = 0, vmax=255)
     plt.show()
     
 
 def concat_images(imga, imgb):
-    """
-    Combines two single channel image ndarrays side-by-side.
+    """ Combines two single channel image ndarrays side-by-side.
+    
+    Args:
+        imga: First image to concatinate
+        imgb: Second image to concatinate
+        
+    Returns:
+        Concatinated imga and imgb
     """
     ha,wa = imga.shape[:2]
     hb,wb = imgb.shape[:2]
@@ -366,8 +392,13 @@ def concat_images(imga, imgb):
 
 
 def concat_n_images(image_list):
-    """
-    Combines N color images from a list of images.
+    """ Combines N color images from a list of images.
+    
+    Args:
+        image_list: List of images to concatinate
+    
+    Returns:
+        Concatinated image
     """
     output = None
     for i, img in enumerate(image_list):
@@ -381,10 +412,11 @@ def concat_n_images(image_list):
 
 def overlay_images(imgs):
     """ Combine three image channels into one color image
+    
     Also does manual color balancing
     
     Args:
-        img: tuple of three channels - Blue, Green, then Red
+        imgs: Tuple of three channels - blue, green, then red
     
     Return:
         Single full color image
