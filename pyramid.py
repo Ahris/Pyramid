@@ -50,9 +50,6 @@ def crop_thirds(img):
     width       = len(img[0])
     height_crop = int(height / 3)
     
-    # print("height: ", height)
-    # print("width: ", width)
-    
     top = img[0:height_crop]                # blue
     mid = img[height_crop:height_crop*2]    # green
     bot = img[height_crop*2:height-1]       # red
@@ -89,15 +86,13 @@ def single_scale_align(cropped_img, offset):
     mid_aligned   = []
     bot_aligned   = []
     
-    # top_norm = top/np.linalg.norm(top)
-    
     for x in range(-offset, offset):
         for y in range(-offset, offset):
              mid_roll = np.roll(np.roll(mid, y, axis=0), x, axis=1)
              bot_roll = np.roll(np.roll(bot, y, axis=0), x, axis=1)
              
-             mid_score = np.sum(np.power(np.array(top) - np.array(mid_roll), 2))
-             bot_score = np.sum(np.power(np.array(top) - np.array(bot_roll), 2))
+             mid_score = np.sum(np.power(np.array(top)-np.array(mid_roll), 2))
+             bot_score = np.sum(np.power(np.array(top)-np.array(bot_roll), 2))
              
              if min_mid_score >= mid_score:
                  min_mid_score = mid_score
@@ -133,23 +128,23 @@ def single_scale_align_edge(cropped_img, offset):
     bot = cropped_img[2]
     min_mid_score = float("inf")
     min_bot_score = float("inf")
-    mid_offset  = []
-    bot_offset   = []
+    mid_offset    = []
+    bot_offset    = []
 
     # Edge detection
     top_edge_sobel = filter.sobel(top)
     mid_edge_sobel = filter.sobel(mid)
     bot_edge_sobel = filter.sobel(bot)
     
-    # top_norm = top/np.linalg.norm(top)
+    top_array = np.array(top_edge_sobel)
     
     for x in range(-offset, offset):
         for y in range(-offset, offset):
              mid_roll = np.roll(np.roll(mid_edge_sobel, y, axis=0), x, axis=1)
              bot_roll = np.roll(np.roll(bot_edge_sobel, y, axis=0), x, axis=1)
              
-             mid_score = np.sum(np.power(np.array(top_edge_sobel) - np.array(mid_roll), 2))
-             bot_score = np.sum(np.power(np.array(top_edge_sobel) - np.array(bot_roll), 2))
+             mid_score = np.sum(np.power(top_array - np.array(mid_roll), 2))
+             bot_score = np.sum(np.power(top_array - np.array(bot_roll), 2))
              
              if min_mid_score >= mid_score:
                  min_mid_score = mid_score
@@ -159,8 +154,8 @@ def single_scale_align_edge(cropped_img, offset):
                  min_bot_score = bot_score
                  bot_offset   = (x,y)
     
-    mid_aligned = np.roll(np.roll(mid, bot_offset[1], axis=0), bot_offset[0], axis=1)
-    bot_aligned = np.roll(np.roll(bot, bot_offset[1], axis=0), bot_offset[0], axis=1)
+    mid_aligned = np.roll(np.roll(mid, bot_offset[1], axis=0), bot_offset[0], 1)
+    bot_aligned = np.roll(np.roll(bot, bot_offset[1], axis=0), bot_offset[0], 1)
     return (top, mid_aligned, bot_aligned)
 
 
@@ -178,26 +173,10 @@ def trim_border(im):
     diff = ImageChops.difference(im, bg)
     diff = ImageChops.add(diff, diff, 2.0, -100)
     bbox = diff.getbbox()
+    
     if bbox:
         return im.crop(bbox)
-        
 
-def trim_messy_borders(imgs):
-    """ Trim the unequal black border from all sides of each image
-    
-    Args:
-        Three images
-        
-    Returns:
-        Three cropped images
-    """
-    
-    top = trim_messy_border(imgs[0])
-    mid = trim_messy_border(imgs[1])
-    bot = trim_messy_border(imgs[2])
-    
-    return (top, mid, bot)
-    
     
 def trim_left_right(img):
     """ Trims black border off the left and right of a single image
@@ -222,49 +201,25 @@ def trim_left_right(img):
     max_crop_width = int(width * .10)
     threshold      = height * .3
     
-    print("threshold", threshold)
-    
     img_bw  = np.around(img/150)
     col_sum = np.sum(img_bw, axis=0)
-    
-    print("white Ok:", white_ok_width, "max_crop_width", max_crop_width)
-    print("height:", height, "width", width)
-    print("col_sum", col_sum)
-    print("col sum len", len(col_sum))
-    
-    # plt.imshow(img_bw, plt.get_cmap('gray'), vmin = 0, vmax=1)
-    # plt.show()
-    # 
-    crop_left = 0;
-    crop_right = 0;
-    
+
+    crop_left = 0;    
     for i in range(0, max_crop_width):
         if col_sum[i] > threshold and i > white_ok_width:
             crop_left = i
             break
+
+    crop_right = 0;
     for i in range(width-1, width-max_crop_width, -1):
         if col_sum[i] > threshold and i < width-white_ok_width:
             crop_right = width-i
             break
     
-    print(max_crop_width)
-    print(crop_left)
-    print(crop_right)
-    
     # Crop columns
+    to_delete = list(range(width-crop_right*2, width)) 
     img_crop = np.delete(img, list(range(crop_left)), axis=1)
-    #imshow(img_crop)
-    
-    print("image width before last crop", len(img_crop[0]))
-    print("width from right:",width-crop_right, width)
-    print(list(range(width-crop_right, width)))
-    
-    to_delete = list(range(width-crop_right*2, width)) # UMMMM cropright *2???? whyy??? 
     img_crop = np.delete(img_crop, to_delete, axis=1) 
-    print("image width after crop", len(img_crop[0]))
-    # imshow(img_crop)
-    #img_blur = scipy.ndimage.filters.gaussian_filter(img_bw, sigma=7)
-    
     return img_crop
 
 
@@ -287,98 +242,71 @@ def trim_top_bot(imgs):
     Returns:
         3 trimmed images
     """   
-    
-    print("--------------------------")
-    
     height          = len(imgs[0])
     width           = len(imgs[0][0])
     white_ok_height = int(height * .02)
     max_crop_height = int(height * .10)
     threshold       = width * .3
     
-    print("threshold", threshold)
-    
+    # Contrast and b/w
     img_bw_b = np.around(imgs[0]/150)
     img_bw_g = np.around(imgs[1]/150)
     img_bw_r = np.around(imgs[2]/150)
     
+    # White count of each row
     col_sum_b = np.sum(img_bw_b, axis=1)
     col_sum_g = np.sum(img_bw_g, axis=1)
     col_sum_r = np.sum(img_bw_r, axis=1)
     
-    print(col_sum_g)
-    print("col sum g len:", len(col_sum_g))
-    
-    # plt.imshow(img_bw_g, plt.get_cmap('gray'), vmin = 0, vmax=1)
-    # plt.show()
-    
     crop_top = 0
-    blue_done = False
-    green_done = False
-    red_done = False
+    done = [False, False, False]
     
     for i in range(0, max_crop_height):
         if i > white_ok_height:
-            if col_sum_b[i] > threshold and not blue_done:
+            if col_sum_b[i] > threshold and not done[0]:
                 crop_top = i
-                blue_done = True
-            if col_sum_g[i] > threshold and not green_done:
+                done[0] = True
+            if col_sum_g[i] > threshold and not done[1]:
                 crop_top = i
-                green_done = True
-            if col_sum_r[i] > threshold and not red_done:
+                done[1] = True
+            if col_sum_r[i] > threshold and not done[2]:
                 crop_top = i
-                red_done = True
+                done[2] = True
     
     crop_bot = 0
-    blue_done = False
-    green_done = False
-    red_done = False
+    done = [False, False, False]
     
     for i in range(height-1, height-max_crop_height, -1):
         if i < height-white_ok_height:
-            print("out of white ok range")
-            if col_sum_b[i] > threshold and not blue_done:
-                print("found blue")
+            if col_sum_b[i] > threshold and not done[0]:
                 crop_bot = height-i;
-                blue_done = True
-            if col_sum_g[i] > threshold and not green_done:
-                print("found green")
+                done[0] = True
+            if col_sum_g[i] > threshold and not done[1]:
                 crop_bot = height-i;
-                green_done = True
-            if col_sum_r[i] > threshold and not red_done:
-                print("found red")
+                done[1] = True
+            if col_sum_r[i] > threshold and not done[2]:
                 crop_bot = height-i;
-                red_done = True
-    
-    print("Max_crop_height", max_crop_height, "top crop",crop_top, "bot crop", crop_bot)
-    
+                done[2] = True
+
     # Crop columns
-    img_crop_b = np.delete(imgs[0], list(range(crop_top)), 0)
-    img_crop_g = np.delete(imgs[1], list(range(crop_top)), 0)
-    img_crop_r = np.delete(imgs[2], list(range(crop_top)), 0)
-    img_crop_b = np.delete(img_crop_b, list(range(height-crop_bot, height)), 0)
-    img_crop_g = np.delete(img_crop_g, list(range(height-crop_bot, height)), 0)
-    img_crop_r = np.delete(img_crop_r, list(range(height-crop_bot, height)), 0)
-    
-    print("blue size:", len(img_crop_b), len(img_crop_b[0]))
-    print("green size:", len(img_crop_g), len(img_crop_g[0]))
-    print("red size:", len(img_crop_r), len(img_crop_r[0]))
-    
+    final_imgs = [None]*3
+    for i in range(0,3):
+        img_crop = np.delete(imgs[i], list(range(crop_top)), 0)
+        img_crop = np.delete(img_crop, list(range(height-crop_bot, height)), 0)
+        final_imgs[i] = img_crop
+        
     # Make sure all the images are the same height - chop from the bottom!
-    min_height = min(len(img_crop_b), len(img_crop_g), len(img_crop_r))
-    img_crop_b = img_crop_b[0:min_height]
-    img_crop_g = img_crop_g[0:min_height]
-    img_crop_r = img_crop_r[0:min_height]
+    min_height = min(len(final_imgs[0]), len(final_imgs[1]), len(final_imgs[2]))
+    for i in range(0,3):
+        final_imgs[i] = final_imgs[i][0:min_height]
     
-    print("min height", min_height)
-    
-    #imshow(concat_n_images((img_crop_b, img_crop_g, img_crop_r)))
-    
-    #img_blur = scipy.ndimage.filters.gaussian_filter(img_bw, sigma=7)
-    return (img_crop_b, img_crop_g, img_crop_r)
+    return final_imgs
     
     
 def imshow(img):    
+    """ 
+    Show an image with range 0 to 255
+    """
     plt.imshow(img, plt.get_cmap('gray'), vmin = 0, vmax=255)
     plt.show()
     
@@ -413,6 +341,7 @@ def concat_n_images(image_list):
 
 def overlay_images(imgs):
     """ Combine three image channels into one color image
+    Also does manual color balancing
     
     Args:
         img: tuple of three channels - Blue, Green, then Red
@@ -420,36 +349,28 @@ def overlay_images(imgs):
     Return:
         Single full color image
     """
-
     height   = len(imgs[0])
     width    = len(imgs[0][0])
     rgbArray = np.zeros((height, width, 3), "uint8")
     rgbArray[..., 0] = imgs[2]*.9   # red
     rgbArray[..., 1] = imgs[1]      # green
-    rgbArray[..., 2] = imgs[0]      # blue
+    rgbArray[..., 2] = imgs[0]*.9   # blue
     return Image.fromarray(rgbArray)
     
 
 def main(argv = sys.argv):
     #img = plt.imread("prk2000000780.jpg") #argv[1]
-    img = Image.open("images/prk2000000780.jpg")
     
-    # Trim the white border
-    trimmed_img = trim_border(img) 
-    
-    # Convert Pillow image to ndarray and transpose
-    trimmed_img = np.asarray(trimmed_img, dtype=np.uint8)
-    trimmed_img = trim_left_right(trimmed_img)
-    
-    # useful
-    cropped_img = crop_thirds(trimmed_img)
+    PIL_img       = Image.open("images/prk2000000780.jpg")
+    trimmed_img   = trim_border(PIL_img) # remove white border
+    ndarray       = np.asarray(trimmed_img, dtype=np.uint8)
+    trimmed_img   = trim_left_right(ndarray)
+    cropped_img   = crop_thirds(trimmed_img)
     retrimmed_img = trim_top_bot(cropped_img)
-    aligned_img = single_scale_align_edge(retrimmed_img, 15)    
-    final_img   = overlay_images(aligned_img)
+    aligned_img   = single_scale_align_edge(retrimmed_img, 15)    
+    final_img     = overlay_images(aligned_img)
     
-    # concat = concat_n_images(cropped_img)
     imshow(final_img)
-    # input("Press ENTER to exit.")
     return 0    
 
 
