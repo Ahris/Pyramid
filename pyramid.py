@@ -90,12 +90,13 @@ def multi_helper(imgs):
     """
     height   = len(imgs[0])
     width    = len(imgs[0][0])
+    r        = 3
     
     # Base Case
     if height < 150 or width < 150:
         print("got to smalled image size yay")
         
-        range_xy = [[-2,2],[-2,2]]
+        range_xy = [[-r,r],[-r,r]]
         offset_g = single_scale_align_edge(imgs[0], imgs[1], range_xy)[1]
         offset_r = single_scale_align_edge(imgs[0], imgs[2], range_xy)[1]
         return (offset_g, offset_r)
@@ -107,20 +108,22 @@ def multi_helper(imgs):
         
         print("in multi, height:", height, "width", width)
         
+        copy_imgs = copy.deepcopy(imgs)
+        
         for i in range(0,3):
-            imgs[i] = scipy.ndimage.filters.gaussian_filter(imgs[i], 1)
-            PIL = Image.fromarray(np.uint8(imgs[i])*255) # Convert arr to PIL img
-            #PIL = PIL.resize((width, height), Image.ANTIALIAS)     
-            PIL = PIL.resize((width, height))           
-            imgs[i] = np.asarray(PIL, dtype=np.uint8)   # Convert PIL img to arr 
+            # imgs[i] = scipy.ndimage.filters.gaussian_filter(imgs[i], 1)
+            PIL = Image.fromarray(np.uint8(copy_imgs[i])*255) # Convert arr to PIL img
+            PIL = PIL.resize((width, height), Image.ANTIALIAS)     
+            # PIL = PIL.resize((width, height))           
+            copy_imgs[i] = np.asarray(PIL, dtype=np.uint8)   # Convert PIL img to arr 
         
-        new_offset = multi_helper(imgs)
-        new_offset = np.multiply(new_offset, 2)
+        new_offset = multi_helper(copy_imgs)
+        #new_offset = np.multiply(new_offset, 2)
         
-        range_g = [[new_offset[0][0]-2, new_offset[0][0]+2],
-                   [new_offset[0][1]-2, new_offset[0][1]+2]]
-        range_r = [[new_offset[1][0]-2, new_offset[1][0]+2],
-                   [new_offset[1][1]-2, new_offset[1][1]+2]]
+        range_g = [[new_offset[0][0]-r, new_offset[0][0]+r],
+                   [new_offset[0][1]-r, new_offset[0][1]+r]]
+        range_r = [[new_offset[1][0]-r, new_offset[1][0]+r],
+                   [new_offset[1][1]-r, new_offset[1][1]+r]]
         
         offset_g = single_scale_align_edge(imgs[0], imgs[1], range_g)[1]
         offset_r = single_scale_align_edge(imgs[0], imgs[2], range_r)[1]        
@@ -455,7 +458,7 @@ def overlay_images(imgs):
     
  
 def main(argv = sys.argv):
-    PIL_img       = Image.open("finalImages/01531v.jpg")
+    PIL_img       = Image.open("finalImages/church.tif")
     trimmed_img   = trim_border(PIL_img) # remove white border
     ndarray_img   = np.asarray(trimmed_img, dtype=np.uint8)
     trimmed_img   = trim_left_right(ndarray_img)
@@ -463,19 +466,19 @@ def main(argv = sys.argv):
     retrim_img    = trim_top_bot(cropped_img)
     
     # Single Scale Align
-    range = [[-15,15],[-15,15]]
-    aligned_g = single_scale_align(retrim_img[0], retrim_img[1], range)[0]
-    aligned_r = single_scale_align(retrim_img[0], retrim_img[2], range)[0]
-    final_img = overlay_images((retrim_img[0], aligned_g, aligned_r))
+    # range = [[-15,15],[-15,15]]
+    # aligned_g = single_scale_align(retrim_img[0], retrim_img[1], range)[0]
+    # aligned_r = single_scale_align(retrim_img[0], retrim_img[2], range)[0]
+    # final_img = overlay_images((retrim_img[0], aligned_g, aligned_r))
     
     # Multi-Scale Align
-    # aligned_img = multi_scale_align(retrim_img)
-    # final_img   = overlay_images(aligned_img)
+    aligned_img = multi_scale_align(retrim_img)
+    final_img   = overlay_images(aligned_img)
     
     #imshow(concat_n_images([retrim_img[0],aligned_g, aligned_r]))
     imshow(final_img)
     
-    scipy.misc.toimage(final_img, cmin=0.0, cmax=255).save('finalImages/01531v_color_2.jpg')
+    #scipy.misc.toimage(final_img, cmin=0.0, cmax=255).save('finalImages/00540u_color.tif')
     return 0    
 
 
