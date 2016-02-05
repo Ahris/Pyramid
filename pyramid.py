@@ -27,6 +27,7 @@ from scipy import signal, ndimage
 from skimage import data, filter
 import matplotlib.pyplot as plt
 from matplotlib import image as im
+from datetime import datetime
 
 __author__  = "Alice Wang"
 __email__   = "awang26@wustl.edu"
@@ -88,14 +89,14 @@ def multi_helper(imgs):
         The offset for green then red images. Follows the format: (x, y),
         where x is axis 1 and y is axis 0.
     """
-    height   = len(imgs[0])
-    width    = len(imgs[0][0])
-    r        = 3
+    height = len(imgs[0])
+    width  = len(imgs[0][0])
     
     # Base Case
     if height < 150 or width < 150:
-        print("got to smalled image size yay")
+        # print("got to smalled image size yay")
         
+        r = 8
         range_xy = [[-r,r],[-r,r]]
         offset_g = single_scale_align_edge(imgs[0], imgs[1], range_xy)[1]
         offset_r = single_scale_align_edge(imgs[0], imgs[2], range_xy)[1]
@@ -105,8 +106,9 @@ def multi_helper(imgs):
     else:
         height = int(height/2)
         width  = int(width/2)
+        r      = 2
         
-        print("in multi, height:", height, "width", width)
+        #print("in multi, height:", height, "width", width)
         
         copy_imgs = copy.deepcopy(imgs)
         
@@ -118,7 +120,7 @@ def multi_helper(imgs):
             copy_imgs[i] = np.asarray(PIL, dtype=np.uint8)   # Convert PIL img to arr 
         
         new_offset = multi_helper(copy_imgs)
-        #new_offset = np.multiply(new_offset, 2)
+        new_offset = np.multiply(new_offset, 2)
         
         range_g = [[new_offset[0][0]-r, new_offset[0][0]+r],
                    [new_offset[0][1]-r, new_offset[0][1]+r]]
@@ -224,7 +226,7 @@ def single_scale_align_edge(img0, img1, offset):
     
     aligned = np.roll(np.roll(img1, final_offset[1], 0), final_offset[0], 1)
     
-    print("edge align offset", final_offset)
+    #print("edge align offset", final_offset)
     
     return (aligned, final_offset)
 
@@ -458,7 +460,7 @@ def overlay_images(imgs):
     
  
 def main(argv = sys.argv):
-    PIL_img       = Image.open("finalImages/church.tif")
+    PIL_img       = Image.open("finalImages/00093u.tif")
     trimmed_img   = trim_border(PIL_img) # remove white border
     ndarray_img   = np.asarray(trimmed_img, dtype=np.uint8)
     trimmed_img   = trim_left_right(ndarray_img)
@@ -478,7 +480,7 @@ def main(argv = sys.argv):
     #imshow(concat_n_images([retrim_img[0],aligned_g, aligned_r]))
     imshow(final_img)
     
-    #scipy.misc.toimage(final_img, cmin=0.0, cmax=255).save('finalImages/00540u_color.tif')
+    scipy.misc.toimage(final_img, cmin=0.0, cmax=255).save('finalImages/00093u_color_2.tif')
     return 0    
 
 
