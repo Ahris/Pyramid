@@ -23,9 +23,10 @@ import scipy
 import numpy as np
 from math import *
 from PIL import Image, ImageChops
-from scipy import signal
+from scipy import signal, ndimage
 from skimage import data, filter
 import matplotlib.pyplot as plt
+from matplotlib import image as im
 
 __author__  = "Alice Wang"
 __email__   = "awang26@wustl.edu"
@@ -159,6 +160,14 @@ def single_scale_align(img0, img1, offset):
     return (aligned_img, final_offset)
     
 
+# def sobel_edge_filter(img):
+#     dx = ndimage.sobel(img, 1)  # horizontal derivative
+#     dy = ndimage.sobel(img, 0)  # vertical derivative
+#     mag = np.hypot(dx, dy)      # magnitude
+#     mag *= 255.0 / np.max(mag)  # normalize (Q&D)
+#     return mag
+
+
 def single_scale_align_edge(img0, img1, offset):
     """Single scale aligns two images using edge detection
     
@@ -185,9 +194,13 @@ def single_scale_align_edge(img0, img1, offset):
     final_offset = []
 
     # Edge detection
-    edge_sobel_0 = filter.sobel(img0)
-    edge_sobel_1 = filter.sobel(img0)
+    edge_sobel_0 = ndimage.sobel(img0, 1)  # horizontal derivative
+    edge_sobel_1 = ndimage.sobel(img1, 1)  # horizontal derivative
     array0 = np.array(edge_sobel_0)
+    
+    # imshow(img1)
+    # imshow(edge_sobel_0)
+    
     
     for x in range(offset[0][0], offset[0][1]):
         for y in range(offset[1][0], offset[1][1]):
@@ -199,6 +212,9 @@ def single_scale_align_edge(img0, img1, offset):
                  final_offset = (x,y)
     
     aligned = np.roll(np.roll(img1, final_offset[1], 0), final_offset[0], 1)
+    
+    print("edge align offset", final_offset)
+    
     return (aligned, final_offset)
 
 
@@ -431,7 +447,7 @@ def overlay_images(imgs):
     
  
 def main(argv = sys.argv):
-    PIL_img       = Image.open("images/prk2000000780_large.tif")
+    PIL_img       = Image.open("images/church.tif")
     trimmed_img   = trim_border(PIL_img) # remove white border
     ndarray_img   = np.asarray(trimmed_img, dtype=np.uint8)
     trimmed_img   = trim_left_right(ndarray_img)
@@ -448,7 +464,10 @@ def main(argv = sys.argv):
     aligned_img = multi_scale_align(retrim_img)
     final_img   = overlay_images(aligned_img)
     
+    #imshow(concat_n_images([retrim_img[0],aligned_g, aligned_r]))
     imshow(final_img)
+    
+    # scipy.misc.toimage(final_img, cmin=0.0, cmax=255).save('myImages/test3.jpg')
     return 0    
 
 
